@@ -1,0 +1,550 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>Resume Autofill</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        width: 360px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 13px;
+        background: #0f0f13;
+        color: #e0e0e0;
+        min-height: 220px;
+      }
+      .header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 13px 15px 11px;
+        border-bottom: 1px solid #1c1c28;
+      }
+      .logo {
+        width: 28px;
+        height: 28px;
+        border-radius: 7px;
+        background: linear-gradient(135deg, #2d6a4f, #52b788);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 15px;
+        margin-right: 9px;
+      }
+      .title {
+        font-size: 14px;
+        font-weight: 600;
+        color: #fff;
+      }
+      .subtitle {
+        font-size: 11px;
+        color: #444;
+      }
+      .hdr-left {
+        display: flex;
+        align-items: center;
+      }
+      .icon-btn {
+        background: none;
+        border: none;
+        color: #444;
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 4px;
+        font-size: 16px;
+        transition: color 0.2s;
+      }
+      .icon-btn:hover {
+        color: #aaa;
+      }
+      .tabs {
+        display: flex;
+        border-bottom: 1px solid #1c1c28;
+      }
+      .tab {
+        flex: 1;
+        padding: 9px;
+        text-align: center;
+        cursor: pointer;
+        font-size: 12px;
+        color: #444;
+        border: none;
+        background: none;
+        border-bottom: 2px solid transparent;
+        transition:
+          color 0.2s,
+          border-color 0.2s;
+      }
+      .tab.active {
+        color: #52b788;
+        border-bottom-color: #52b788;
+      }
+      .panel {
+        display: none;
+        padding: 15px;
+      }
+      .panel.active {
+        display: block;
+      }
+      .status {
+        padding: 9px 11px;
+        border-radius: 7px;
+        margin-bottom: 13px;
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
+      .status.ok {
+        background: #0a1f12;
+        color: #52b788;
+        border: 1px solid #1b4332;
+      }
+      .status.bad {
+        background: #1a0a0a;
+        color: #e07070;
+        border: 1px solid #3a1515;
+      }
+      .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .dot.g {
+        background: #52b788;
+      }
+      .dot.r {
+        background: #e07070;
+      }
+      .upload {
+        border: 2px dashed #252535;
+        border-radius: 9px;
+        padding: 22px 14px;
+        text-align: center;
+        cursor: pointer;
+        transition:
+          border-color 0.2s,
+          background 0.2s;
+        margin-bottom: 13px;
+      }
+      .upload:hover,
+      .upload.over {
+        border-color: #40916c;
+        background: #0a1a0f;
+      }
+      .upload-icon {
+        font-size: 26px;
+        margin-bottom: 7px;
+      }
+      .upload-label {
+        font-size: 13px;
+        color: #888;
+        margin-bottom: 3px;
+      }
+      .upload-sub {
+        font-size: 11px;
+        color: #444;
+      }
+      #fileInput {
+        display: none;
+      }
+      .file-card {
+        background: #0a1a0f;
+        border: 1px solid #1b4332;
+        border-radius: 7px;
+        padding: 10px 12px;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin-bottom: 13px;
+      }
+      .fc-icon {
+        font-size: 20px;
+      }
+      .fc-info {
+        flex: 1;
+        min-width: 0;
+      }
+      .fc-name {
+        font-size: 12px;
+        color: #d8f3dc;
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .fc-size {
+        font-size: 11px;
+        color: #52b788;
+      }
+      .fc-rm {
+        background: none;
+        border: none;
+        color: #444;
+        cursor: pointer;
+        font-size: 17px;
+        padding: 0;
+      }
+      .btn {
+        width: 100%;
+        padding: 9px;
+        border: none;
+        border-radius: 7px;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition:
+          background 0.2s,
+          color 0.2s;
+      }
+      .btn-p {
+        background: #2d6a4f;
+        color: #d8f3dc;
+      }
+      .btn-p:hover:not(:disabled) {
+        background: #40916c;
+      }
+      .btn-p:disabled {
+        background: #152a1e;
+        color: #2d5a3a;
+        cursor: not-allowed;
+      }
+      .btn-s {
+        background: #18182a;
+        color: #888;
+        border: 1px solid #252535;
+        margin-top: 7px;
+      }
+      .btn-s:hover {
+        background: #1e1e32;
+        color: #bbb;
+      }
+      .btn-d {
+        background: #2a1010;
+        color: #e07070;
+        border: 1px solid #4a1c1c;
+        margin-top: 7px;
+      }
+      .btn-d:hover {
+        background: #361414;
+      }
+      .loader {
+        display: none;
+        text-align: center;
+        padding: 14px 0;
+      }
+      .loader.on {
+        display: block;
+      }
+      .spin {
+        width: 22px;
+        height: 22px;
+        border: 2px solid #252535;
+        border-top-color: #52b788;
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+        margin: 0 auto 7px;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .loader-txt {
+        font-size: 12px;
+        color: #444;
+      }
+      .sec-title {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        color: #40916c;
+        margin-bottom: 8px;
+        font-weight: 600;
+      }
+      .frow {
+        display: flex;
+        gap: 7px;
+        margin-bottom: 6px;
+        align-items: center;
+      }
+      .flbl {
+        width: 76px;
+        flex-shrink: 0;
+        font-size: 11px;
+        color: #444;
+        padding-top: 2px;
+      }
+      .finp {
+        flex: 1;
+        background: #18182a;
+        border: 1px solid #252535;
+        border-radius: 6px;
+        padding: 5px 8px;
+        color: #e0e0e0;
+        font-size: 12px;
+        outline: none;
+        transition: border-color 0.2s;
+      }
+      .finp:focus {
+        border-color: #40916c;
+      }
+      .badge {
+        display: inline-block;
+        font-size: 10px;
+        padding: 2px 7px;
+        border-radius: 10px;
+        margin-left: 5px;
+        vertical-align: middle;
+      }
+      .badge.ai {
+        background: #0d2040;
+        color: #7ab8f0;
+      }
+      .badge.heu {
+        background: #282010;
+        color: #c0a040;
+      }
+      .stg {
+        margin-bottom: 15px;
+      }
+      .stg label {
+        font-size: 12px;
+        color: #888;
+        margin-bottom: 5px;
+        display: block;
+      }
+      .sinp {
+        width: 100%;
+        background: #18182a;
+        border: 1px solid #252535;
+        border-radius: 6px;
+        padding: 8px 10px;
+        color: #e0e0e0;
+        font-size: 12px;
+        outline: none;
+        font-family: monospace;
+      }
+      .sinp:focus {
+        border-color: #40916c;
+      }
+      .hint {
+        font-size: 11px;
+        color: #333;
+        margin-top: 4px;
+      }
+      .hint a {
+        color: #52b788;
+        text-decoration: none;
+      }
+      .empty {
+        text-align: center;
+        padding: 20px 0;
+        color: #333;
+      }
+      .empty-icon {
+        font-size: 30px;
+        margin-bottom: 7px;
+      }
+      .toast {
+        position: fixed;
+        bottom: 11px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #1b4332;
+        color: #d8f3dc;
+        border-radius: 7px;
+        padding: 7px 15px;
+        font-size: 12px;
+        opacity: 0;
+        transition: opacity 0.3s;
+        pointer-events: none;
+        white-space: nowrap;
+        z-index: 9999;
+      }
+      .toast.err {
+        background: #3a1010;
+        color: #e07070;
+      }
+      .toast.show {
+        opacity: 1;
+      }
+      hr {
+        border: none;
+        border-top: 1px solid #1c1c28;
+        margin: 12px 0;
+      }
+      #autofillWrap {
+        margin-top: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <div class="hdr-left">
+        <div class="logo">📄</div>
+        <div><div class="title">Resume Autofill</div></div>
+      </div>
+      <button class="icon-btn" id="btnSettings" title="Settings">⚙️</button>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="fill">Fill Form</button>
+      <button class="tab" data-tab="preview">Preview</button>
+      <button class="tab" data-tab="settings">Settings</button>
+    </div>
+
+    <!-- FILL -->
+    <div class="panel active" id="tab-fill">
+      <div class="status bad" id="siteStatus">
+        <div class="dot r" id="sDot"></div>
+        <span id="sTxt">Checking page…</span>
+      </div>
+
+      <div class="upload" id="uploadZone">
+        <div class="upload-icon">📎</div>
+        <div class="upload-label">Drop resume here or click to browse</div>
+        <div class="upload-sub">PDF or DOCX supported</div>
+        <input type="file" id="fileInput" accept=".pdf,.docx,.doc" />
+      </div>
+
+      <div class="file-card" id="fileCard" style="display: none">
+        <div class="fc-icon" id="fcIcon">📄</div>
+        <div class="fc-info">
+          <div class="fc-name" id="fcName">resume.pdf</div>
+          <div class="fc-size" id="fcSize">0 KB</div>
+        </div>
+        <button class="fc-rm" id="fcRm">✕</button>
+      </div>
+
+      <div class="loader" id="loader">
+        <div class="spin"></div>
+        <div class="loader-txt" id="loaderTxt">Parsing…</div>
+      </div>
+
+      <button class="btn btn-p" id="btnParse" disabled>Parse Resume</button>
+
+      <div id="autofillWrap" style="display: none">
+        <hr />
+        <button
+          class="btn btn-s"
+          id="btnAnalyze"
+          style="margin-bottom: 8px; border-color: #52b788; color: #52b788"
+        >
+          🧠 Analyze Page & Match (AI)
+        </button>
+        <button class="btn btn-p" id="btnFill">⚡ Autofill This Form</button>
+        <div
+          style="
+            font-size: 11px;
+            color: #333;
+            text-align: center;
+            margin-top: 5px;
+          "
+        >
+          Review in Preview tab before filling
+        </div>
+      </div>
+    </div>
+
+    <!-- PREVIEW -->
+    <div class="panel" id="tab-preview">
+      <div class="empty" id="pvEmpty">
+        <div class="empty-icon">🗂️</div>
+        <div style="font-size: 12px">Parse a resume first</div>
+      </div>
+      <div id="pvContent" style="display: none">
+        <div style="margin-bottom: 12px">
+          <div class="sec-title">
+            Personal Info <span class="badge" id="srcBadge"></span>
+          </div>
+          <div class="frow">
+            <span class="flbl">Name</span><input class="finp" id="p_name" />
+          </div>
+          <div class="frow">
+            <span class="flbl">Email</span
+            ><input class="finp" id="p_email" type="email" />
+          </div>
+          <div class="frow">
+            <span class="flbl">Phone</span><input class="finp" id="p_phone" />
+          </div>
+          <div class="frow">
+            <span class="flbl">Location</span
+            ><input class="finp" id="p_location" />
+          </div>
+        </div>
+        <div style="margin-bottom: 12px">
+          <div class="sec-title">Links</div>
+          <div class="frow">
+            <span class="flbl">LinkedIn</span
+            ><input class="finp" id="p_linkedin" />
+          </div>
+          <div class="frow">
+            <span class="flbl">GitHub</span><input class="finp" id="p_github" />
+          </div>
+          <div class="frow">
+            <span class="flbl">Portfolio</span
+            ><input class="finp" id="p_portfolio" />
+          </div>
+        </div>
+        <div style="margin-bottom: 12px">
+          <div class="sec-title">Skills</div>
+          <textarea
+            class="finp"
+            id="p_skills"
+            rows="3"
+            style="resize: vertical; width: 100%"
+          ></textarea>
+        </div>
+
+        <div id="dynamic-questions" style="margin-bottom: 12px"></div>
+
+        <button class="btn btn-s" id="btnSaveEdits">💾 Save Edits</button>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="panel" id="tab-settings">
+      <div class="stg">
+        <label
+          >Groq API Key
+          <span style="color: #333">(optional — improves parsing)</span></label
+        >
+        <input type="password" class="sinp" id="groqKey" placeholder="gsk_…" />
+        <div class="hint">
+          Free key at
+          <a href="https://console.groq.com" target="_blank"
+            >console.groq.com</a
+          >
+          · Stored only in your browser, sent only to Groq API.
+        </div>
+      </div>
+      <button class="btn btn-p" id="btnSaveKey">Save API Key</button>
+      <button class="btn btn-d" id="btnClearKey">Clear API Key</button>
+      <hr />
+      <div class="stg">
+        <label>Session Data</label>
+        <button class="btn btn-s" id="btnClearData">
+          Clear Parsed Resume Data
+        </button>
+      </div>
+      <hr />
+      <div style="font-size: 11px; color: #252535; text-align: center">
+        Resume Autofill v1.0 · All data stays on your device
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script src="libs/pdf.min.js"></script>
+    <script src="libs/mammoth.min.js"></script>
+    <script src="parser.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

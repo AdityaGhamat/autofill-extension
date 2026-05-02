@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "Resume Autofill",
+  "version": "1.0.0",
+  "description": "Automatically fill Greenhouse job application forms from your resume.",
+  "permissions": ["activeTab", "scripting", "storage", "tabs", "webNavigation"],
+  "host_permissions": [
+    "https://job-boards.greenhouse.io/*",
+    "https://app.careerpuck.com/*",
+    "https://api.groq.com/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": { "48": "icons/icon.png" }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://job-boards.greenhouse.io/*",
+        "https://boards.greenhouse.io/*",
+        "https://app.careerpuck.com/*"
+      ],
+      "js": ["content.js"],
+      "all_frames": true,
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["libs/pdf.worker.min.js"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "icons": { "48": "icons/icon.png" }
+}
