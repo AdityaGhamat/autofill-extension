@@ -125,19 +125,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   if (message.action === "SAVE_RESUME_DATA") {
-    chrome.storage.session.set({ resumeData: message.data }, () =>
-      sendResponse({ success: true }),
+    chrome.storage.local.set(
+      {
+        resumeData: message.data,
+        resumeFile: message.file,
+      },
+      () => sendResponse({ success: true }),
     );
     return true;
   }
   if (message.action === "GET_RESUME_DATA") {
-    chrome.storage.session.get(["resumeData"], (r) =>
-      sendResponse({ data: r.resumeData || null }),
+    chrome.storage.local.get(["resumeData", "resumeFile"], (r) =>
+      sendResponse({ data: r.resumeData || null, file: r.resumeFile || null }),
     );
     return true;
   }
   if (message.action === "CLEAR_RESUME_DATA") {
-    chrome.storage.session.remove("resumeData", () =>
+    chrome.storage.local.remove(["resumeData", "resumeFile"], () =>
       sendResponse({ success: true }),
     );
     return true;

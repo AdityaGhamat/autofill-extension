@@ -109,7 +109,7 @@
       const data = await window.parseResume(currentFile, key);
       resumeData = data;
       filePayload = await toDataURL(currentFile);
-      await msg({ action: "SAVE_RESUME_DATA", data });
+      await msg({ action: "SAVE_RESUME_DATA", data, file: filePayload });
       populatePreview(data);
       setLoading(false);
       $("autofillWrap").style.display = "block";
@@ -154,7 +154,7 @@
       .value.split(",")
       .map((s) => s.trim())
       .filter(Boolean);
-    msg({ action: "SAVE_RESUME_DATA", data: resumeData });
+    msg({ action: "SAVE_RESUME_DATA", data: resumeData, file: filePayload });
     toast("Edits saved ✓");
   }
 
@@ -185,8 +185,24 @@
 
       toast(`Found ${questions.length} questions. Asking AI...`);
 
-      // 2. Call Groq
-      const prompt = `You are an expert job applicant. Read the resume and answer these application questions.\n\nResume:\n${JSON.stringify(resumeData)}\n\nQuestions:\n${JSON.stringify(questions)}\n\nInstructions:\n- If it asks for a Cover Letter, write a 100-word professional cover letter highlighting the resume's MERN stack experience.\n- If it asks for years of experience with specific tech, calculate it from the resume dates.\n- If it asks about government affiliations/sponsorship/visas, default to 'No' or standard safe answers.\n- Return ONLY a valid JSON object mapping the exact question string to your answer string.\n\nJSON Output:`;
+      const prompt = `You are a robotic job application JSON generator. Read the resume and map the EXACT questions to the correct answers.
+
+Resume:
+${JSON.stringify(resumeData)}
+
+Questions to Answer:
+${JSON.stringify(questions)}
+
+MANDATORY RULES FOR ANSWERS:
+1. Cover Letter: Write a professional 100-word cover letter highlighting MERN stack, React, and Node.js.
+2. "How did you hear" / Source: Output exactly "LinkedIn". DO NOT say "Not specified".
+3. "Legally authorized to work": Output exactly "Yes".
+4. Sponsorship / Visa: Output exactly "No".
+5. Demographics (Gender/Race/Veteran/Disability): Output exactly "Decline to self-identify" or "I don't wish to answer".
+6. If a question is about coordinates, relocation, or background checks: Output exactly "Yes".
+7. If info is completely missing, output exactly "N/A". NEVER output conversational text or phrases like "Not specified in the resume".
+
+Return ONLY a raw JSON object where the keys are the EXACT question strings, and the values are your answers. DO NOT wrap the output in markdown blocks.`;
 
       const response = await fetch(
         "https://api.groq.com/openai/v1/chat/completions",
@@ -371,6 +387,8 @@
       const r = await msg({ action: "GET_RESUME_DATA" });
       if (r?.data) {
         resumeData = r.data;
+        filePayload = r.file;
+
         populatePreview(r.data);
         $("autofillWrap").style.display = "block";
         $("uploadZone").style.display = "none";
