@@ -35,11 +35,11 @@ Automatically fills Greenhouse job application forms from your resume (PDF or DO
 
 ## Supported URLs
 
-| Company | URL |
-|---------|-----|
-| Ethos Life (Greenhouse) | https://job-boards.greenhouse.io/ethoslife/jobs/8502810002 |
-| PilotHQ (Greenhouse) | https://job-boards.greenhouse.io/pilothq/jobs/8516101002 |
-| Lyft via CareerPuck | https://app.careerpuck.com/job-board/lyft/job/8318822002?gh_jid=8318822002 |
+| Company                 | URL                                                                        |
+| ----------------------- | -------------------------------------------------------------------------- |
+| Ethos Life (Greenhouse) | https://job-boards.greenhouse.io/ethoslife/jobs/8502810002                 |
+| PilotHQ (Greenhouse)    | https://job-boards.greenhouse.io/pilothq/jobs/8516101002                   |
+| Lyft via CareerPuck     | https://app.careerpuck.com/job-board/lyft/job/8318822002?gh_jid=8318822002 |
 
 ---
 
@@ -87,13 +87,13 @@ Uses the native `HTMLInputElement.prototype.value` setter (bypasses React's synt
 
 ## Security
 
-| Concern | Approach |
-|---------|----------|
-| API key storage | `chrome.storage.local` — extension-sandboxed, no web page can read it |
-| API key exposure | Only accessed in `background.js` (service worker), never passed to content scripts |
-| Resume data | `chrome.storage.session` — auto-cleared when browser closes |
-| Auto-submission | **Never happens** — user must click Submit manually |
-| Data transmission | Only to `api.groq.com` when a key is configured, nowhere else |
+| Concern           | Approach                                                                           |
+| ----------------- | ---------------------------------------------------------------------------------- |
+| API key storage   | `chrome.storage.local` — extension-sandboxed, no web page can read it              |
+| API key exposure  | Only accessed in `background.js` (service worker), never passed to content scripts |
+| Resume data       | `chrome.storage.session` — auto-cleared when browser closes                        |
+| Auto-submission   | **Never happens** — user must click Submit manually                                |
+| Data transmission | Only to `api.groq.com` when a key is configured, nowhere else                      |
 
 ---
 
@@ -106,12 +106,3 @@ Uses the native `HTMLInputElement.prototype.value` setter (bypasses React's synt
 - **Groq rate limits**: Free tier is ~30 req/min. Heuristic fallback activates automatically on API errors.
 
 ---
-
-## Evaluation Criteria Coverage
-
-| Criteria | Weight | Implementation |
-|----------|--------|----------------|
-| Autofill correctness | 75% | 4-strategy layered detection + React-compatible fill + MutationObserver |
-| Resume parsing accuracy | 10% | Groq llama-3.3-70b (primary) + regex/heuristic fallback |
-| Code quality & structure | 10% | Modular files, clear separation, error handling throughout |
-| User experience | 5% | Clean dark UI, editable preview, fill feedback banner, session restore |
