@@ -15,14 +15,13 @@
   });
 
   function bindAll() {
-    // Tabs
     document
       .querySelectorAll(".tab")
       .forEach((t) =>
         t.addEventListener("click", () => switchTab(t.dataset.tab)),
       );
     $("btnSettings").addEventListener("click", () => switchTab("settings"));
-    // Upload
+
     $("btnAnalyze").addEventListener("click", doAnalyze);
     $("uploadZone").addEventListener("click", () => $("fileInput").click());
     $("uploadZone").addEventListener("dragover", (e) => {
@@ -59,7 +58,6 @@
       .forEach((p) => p.classList.toggle("active", p.id === `tab-${name}`));
   }
 
-  // ── Site check ──────────────────────────────────────────────────────────────
   async function checkSite() {
     try {
       const r = await msg({ action: "CHECK_TAB" });
@@ -74,7 +72,6 @@
     }
   }
 
-  // ── File ─────────────────────────────────────────────────────────────────────
   function onFile(file) {
     const ext = file.name.split(".").pop().toLowerCase();
     if (!["pdf", "docx", "doc"].includes(ext)) {
@@ -89,6 +86,7 @@
     $("fcSize").textContent = fmtBytes(file.size);
     $("btnParse").disabled = false;
   }
+
   function clearFile() {
     currentFile = null;
     $("fileInput").value = "";
@@ -98,7 +96,6 @@
     $("autofillWrap").style.display = "none";
   }
 
-  // ── Parse ────────────────────────────────────────────────────────────────────
   async function doParse() {
     if (!currentFile) return;
     setLoading(true, "Extracting text…");
@@ -124,7 +121,6 @@
     }
   }
 
-  // ── Preview ──────────────────────────────────────────────────────────────────
   function populatePreview(d) {
     $("pvEmpty").style.display = "none";
     $("pvContent").style.display = "block";
@@ -140,6 +136,7 @@
     b.textContent = d._source === "groq" ? "AI" : "Heuristics";
     b.className = `badge ${d._source === "groq" ? "ai" : "heu"}`;
   }
+
   function saveEdits() {
     if (!resumeData) return;
     resumeData.name = $("p_name").value;
@@ -166,7 +163,7 @@
     const kr = await msg({ action: "GET_API_KEY" });
     const key = kr?.key;
     if (!key) {
-      toast("Groq API Key required for AI Mapping. Check Settings.", "err");
+      toast("Groq API Key required for AI Mapping.", "err");
       switchTab("settings");
       return;
     }
@@ -175,7 +172,6 @@
     $("btnAnalyze").textContent = "⏳ Scraping & Analyzing...";
 
     try {
-      // 1. Scrape page
       const scrapeRes = await msg({ action: "SCRAPE_QUESTIONS" });
       const questions = scrapeRes?.questions || [];
       if (questions.length === 0) {
@@ -195,14 +191,15 @@ ${JSON.stringify(questions)}
 
 MANDATORY RULES FOR ANSWERS:
 1. Cover Letter: Write a professional 100-word cover letter highlighting MERN stack, React, and Node.js.
-2. "How did you hear" / Source: Output exactly "LinkedIn". DO NOT say "Not specified".
-3. "Legally authorized to work": Output exactly "Yes".
-4. Sponsorship / Visa: Output exactly "No".
-5. Demographics (Gender/Race/Veteran/Disability): Output exactly "Decline to self-identify" or "I don't wish to answer".
-6. If a question is about coordinates, relocation, or background checks: Output exactly "Yes".
-7. If info is completely missing, output exactly "N/A". NEVER output conversational text or phrases like "Not specified in the resume".
+2. Gender: Confidently infer the gender based on the applicant's first name and output exactly "Male" or "Female". If completely ambiguous, output "Decline to self-identify".
+3. Race/Veteran/Disability: Output exactly "Decline to self-identify" or "I don't wish to answer".
+4. "How did you hear" / Source: Output exactly "LinkedIn".
+5. "Legally authorized to work" / Background Checks / Relocation: Output exactly "Yes".
+6. Sponsorship / Visa: Output exactly "No".
+7. Technical Questions (e.g., Python): If asked about a skill NOT on the resume, DO NOT output "N/A". Instead, write a 1-sentence response pivoting to your actual skills (e.g., "While I do not have production experience with Python, my backend expertise is focused on Node.js and the MERN stack.").
+8. Unanswerable non-technical fields: Output exactly "N/A".
 
-Return ONLY a raw JSON object where the keys are the EXACT question strings, and the values are your answers. DO NOT wrap the output in markdown blocks.`;
+Return ONLY a raw JSON object where the keys are the EXACT question strings, and the values are your answers. DO NOT output markdown formatting or conversational text.`;
 
       const response = await fetch(
         "https://api.groq.com/openai/v1/chat/completions",
@@ -215,7 +212,7 @@ Return ONLY a raw JSON object where the keys are the EXACT question strings, and
           body: JSON.stringify({
             model: "llama-3.3-70b-versatile",
             messages: [{ role: "user", content: prompt }],
-            temperature: 0.2,
+            temperature: 0.1,
             response_format: { type: "json_object" },
           }),
         },
@@ -224,7 +221,6 @@ Return ONLY a raw JSON object where the keys are the EXACT question strings, and
       const data = await response.json();
       aiAnswers = JSON.parse(data.choices[0].message.content);
 
-      // 3. Show in Preview
       renderDynamicQuestions();
       toast("AI Analysis complete! Review in Preview tab.");
       switchTab("preview");
@@ -245,96 +241,8 @@ Return ONLY a raw JSON object where the keys are the EXACT question strings, and
       row.style.marginBottom = "8px";
       row.innerHTML = `
       <div style="font-size:11px; color:#888; margin-bottom:3px;">${q}</div>
-      ${
-        a.length > 50
-          ? `<textarea class="finp dy-inp" data-q="${q}" rows="3" style="width:100%">${a}</textarea>`
-          : `<input class="finp dy-inp" data-q="${q}" value="${a}" style="width:100%"/>`
-      }
-    `;
-      wrap.appendChild(row);
-    }
-  }
-
-  // ── Autofill ─────────────────────────────────────────────────────────────────
-  // ── Autofill & AI Analysis ───────────────────────────────────────────────────
-
-  async function doAnalyze() {
-    if (!resumeData) {
-      toast("Parse a resume first", "err");
-      return;
-    }
-    const kr = await msg({ action: "GET_API_KEY" });
-    const key = kr?.key;
-    if (!key) {
-      toast("Groq API Key required for AI Mapping. Check Settings.", "err");
-      switchTab("settings");
-      return;
-    }
-
-    $("btnAnalyze").disabled = true;
-    $("btnAnalyze").textContent = "⏳ Scraping & Analyzing...";
-
-    try {
-      // 1. Scrape page
-      const scrapeRes = await msg({ action: "SCRAPE_QUESTIONS" });
-      const questions = scrapeRes?.questions || [];
-      if (questions.length === 0) {
-        toast("No custom questions found on page.", "err");
-        return;
-      }
-
-      toast(`Found ${questions.length} questions. Asking AI...`);
-
-      // 2. Call Groq
-      const prompt = `You are an expert job applicant. Read the resume and answer these application questions.\n\nResume:\n${JSON.stringify(resumeData)}\n\nQuestions:\n${JSON.stringify(questions)}\n\nInstructions:\n- If it asks for a Cover Letter, write a 100-word professional cover letter highlighting the resume's MERN stack experience.\n- If it asks for years of experience with specific tech, calculate it from the resume dates.\n- If it asks about government affiliations/sponsorship/visas, default to 'No' or standard safe answers.\n- Return ONLY a valid JSON object mapping the exact question string to your answer string.\n\nJSON Output:`;
-
-      const response = await fetch(
-        "https://api.groq.com/openai/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${key}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "llama-3.3-70b-versatile",
-            messages: [{ role: "user", content: prompt }],
-            temperature: 0.2,
-            response_format: { type: "json_object" },
-          }),
-        },
-      );
-
-      const data = await response.json();
-      aiAnswers = JSON.parse(data.choices[0].message.content);
-
-      // 3. Show in Preview
-      renderDynamicQuestions();
-      toast("AI Analysis complete! Review in Preview tab.");
-      switchTab("preview");
-    } catch (e) {
-      toast("Analysis failed", "err");
-      console.error(e);
-    } finally {
-      $("btnAnalyze").disabled = false;
-      $("btnAnalyze").textContent = "🧠 Analyze Page & Match (AI)";
-    }
-  }
-
-  function renderDynamicQuestions() {
-    const wrap = $("dynamic-questions");
-    wrap.innerHTML = '<div class="sec-title">AI Custom Answers (Review)</div>';
-    for (const [q, a] of Object.entries(aiAnswers)) {
-      const row = document.createElement("div");
-      row.style.marginBottom = "8px";
-      row.innerHTML = `
-      <div style="font-size:11px; color:#888; margin-bottom:3px;">${q}</div>
-      ${
-        a.length > 50
-          ? `<textarea class="finp dy-inp" data-q="${q}" rows="3" style="width:100%">${a}</textarea>`
-          : `<input class="finp dy-inp" data-q="${q}" value="${a}" style="width:100%"/>`
-      }
-    `;
+      ${a.length > 50 ? `<textarea class="finp dy-inp" data-q="${q}" rows="3" style="width:100%">${a}</textarea>` : `<input class="finp dy-inp" data-q="${q}" value="${a}" style="width:100%"/>`}
+      `;
       wrap.appendChild(row);
     }
   }
@@ -345,13 +253,11 @@ Return ONLY a raw JSON object where the keys are the EXACT question strings, and
       return;
     }
 
-    // Sync standard edits
     const pvActive = document
       .getElementById("tab-preview")
       .classList.contains("active");
     if (pvActive) saveEdits();
 
-    // Sync AI dynamic edits
     document.querySelectorAll(".dy-inp").forEach((inp) => {
       aiAnswers[inp.dataset.q] = inp.value;
     });
@@ -359,7 +265,6 @@ Return ONLY a raw JSON object where the keys are the EXACT question strings, and
     $("btnFill").disabled = true;
     $("btnFill").textContent = "⏳ Filling…";
     try {
-      // Send standard data + AI answers
       const r = await msg({
         action: "TRIGGER_AUTOFILL",
         resumeData,
@@ -381,14 +286,12 @@ Return ONLY a raw JSON object where the keys are the EXACT question strings, and
     }
   }
 
-  // ── Session restore ──────────────────────────────────────────────────────────
   async function loadSaved() {
     try {
       const r = await msg({ action: "GET_RESUME_DATA" });
       if (r?.data) {
         resumeData = r.data;
         filePayload = r.file;
-
         populatePreview(r.data);
         $("autofillWrap").style.display = "block";
         $("uploadZone").style.display = "none";
@@ -401,7 +304,6 @@ Return ONLY a raw JSON object where the keys are the EXACT question strings, and
     } catch (_) {}
   }
 
-  // ── API key ──────────────────────────────────────────────────────────────────
   async function loadKey() {
     const r = await msg({ action: "GET_API_KEY" });
     if (r?.key) $("groqKey").value = r.key;
@@ -429,14 +331,15 @@ Return ONLY a raw JSON object where the keys are the EXACT question strings, and
     resumeData = null;
     filePayload = null;
     currentFile = null;
+    aiAnswers = {};
     $("pvEmpty").style.display = "block";
     $("pvContent").style.display = "none";
     $("autofillWrap").style.display = "none";
+    $("dynamic-questions").innerHTML = "";
     clearFile();
     toast("Data cleared");
   }
 
-  // ── Utils ────────────────────────────────────────────────────────────────────
   function setLoading(on, txt = "") {
     $("loader").classList.toggle("on", on);
     $("loaderTxt").textContent = txt;

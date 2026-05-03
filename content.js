@@ -1,4 +1,6 @@
 (function () {
+  "use strict";
+
   const FIELD_DEFS = [
     {
       key: "first_name",
@@ -36,7 +38,6 @@
       labels: ["location (city)", "location", "city", "current location"],
       type: "text",
     },
-    // ── Social links ── (present on ALL 3 pages as custom question text inputs)
     {
       key: "linkedin",
       ids: ["linkedin_profile", "linkedin", "linkedin_url"],
@@ -60,7 +61,6 @@
       labels: ["portfolio", "website", "personal website", "portfolio url"],
       type: "text",
     },
-    // ── PilotHQ specific ──
     {
       key: "cover_letter_text",
       ids: ["cover_letter"],
@@ -79,21 +79,11 @@
     },
   ];
 
-  const DROPDOWN_DEFS = [
-    {
-      key: "country",
-      labels: ["country"],
-      autoFill: false,
-    },
-  ];
-
-  // ─── Message listener ────────────────────────────────────────────────────────
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (msg.action === "PING") {
       sendResponse({ status: "ready" });
       return true;
     }
-
     if (msg.action === "SCRAPE_QUESTIONS") {
       waitForFormReady().then(() => {
         sendResponse({ success: true, questions: scrapeFormQuestions() });
@@ -108,13 +98,11 @@
     }
   });
 
-  // ─── MAIN AUTOFILL ───────────────────────────────────────────────────────────
-
   async function doAutofill(data, fileData, aiAnswers = {}) {
     const results = { filled: [], skipped: [], errors: [] };
 
     await waitForFormReady();
-    await exposeHiddenTextareas(); // NEW: Open cover letter boxes
+    await exposeHiddenTextareas();
     await sleep(800);
 
     log(
@@ -184,23 +172,18 @@
         : results.errors.push(`AI: ${questionLabel.substring(0, 15)}`);
     }
 
-    // ── Dedicated Cover Letter Injection (Bypass generic label matching) ──
+    // ── Dedicated Cover Letter Injection ──
     const clKey = Object.keys(aiAnswers).find((k) =>
       k.toLowerCase().includes("cover letter"),
     );
-
     if (clKey && aiAnswers[clKey] && aiAnswers[clKey].toLowerCase() !== "n/a") {
       let clTextarea = null;
 
-      // Look at every textarea currently on the page
       const textareas = document.querySelectorAll("textarea");
       for (const ta of textareas) {
-        // Find its closest wrapper box using all known Greenhouse wrapper classes
         const wrapper = ta.closest(
           '.application-field, .field, .field-wrapper, .file-upload, [role="group"]',
         );
-
-        // If the wrapper contains the text "Cover Letter", this is our target!
         if (
           wrapper &&
           wrapper.textContent.toLowerCase().includes("cover letter")
@@ -211,16 +194,15 @@
       }
 
       if (clTextarea) {
-        log("Found Cover Letter textarea via wrapper text!");
+        log("Injecting Cover Letter directly via robust selector.");
         reactFill(clTextarea, aiAnswers[clKey])
           ? results.filled.push("Cover Letter")
           : results.errors.push("Cover Letter");
       } else {
-        log("Could not find Cover Letter textarea.");
+        log("Failed to find Cover Letter textarea in the DOM.");
         results.errors.push("Cover Letter (Element not found)");
       }
     }
-    // ──────────────────────────────────────────────────────────────────────
 
     // 3. Resume file upload
     if (fileData) {
@@ -250,62 +232,29 @@
   function findField(def) {
     for (const id of def.ids) {
       const el = document.getElementById(id);
-      if (el && isInputEl(el) && isVisible(el)) {
-        log(`Found by ID: #${id}`);
-        return el;
-      }
+      if (el && isInputEl(el) && isVisible(el)) return el;
     }
-
-    // Strategy 2: name attribute
     for (const id of def.ids) {
       const el = document.querySelector(`[name="${id}"]`);
-      if (el && isInputEl(el) && isVisible(el)) {
-        log(`Found by name: [name=${id}]`);
-        return el;
-      }
+      if (el && isInputEl(el) && isVisible(el)) return el;
     }
-
-    // Strategy 3: <label> text → for= → input
-    // Greenhouse wraps each field in:
-    //   <div class="field">
-    //     <label for="INPUT_ID">Label Text *</label>
-    //     <input id="INPUT_ID" type="text" />
-    //   </div>
     for (const label of document.querySelectorAll("label")) {
       const labelText = cleanLabel(label.textContent);
       if (def.labels.some((l) => labelText === l || labelText.startsWith(l))) {
-        // Try for= link
         if (label.htmlFor) {
           const el = document.getElementById(label.htmlFor);
-          if (el && isInputEl(el) && isVisible(el)) {
-            log(`Found by label[for]: "${labelText}" → #${label.htmlFor}`);
-            return el;
-          }
+          if (el && isInputEl(el) && isVisible(el)) return el;
         }
-        // Try direct child
         const child = label.parentElement?.querySelector("input, textarea");
-        if (child && isVisible(child)) {
-          log(`Found by label child: "${labelText}"`);
-          return child;
-        }
-        // Try next sibling
+        if (child && isVisible(child)) return child;
         const sib = label.nextElementSibling;
-        if (sib && isInputEl(sib) && isVisible(sib)) {
-          log(`Found by label sibling: "${labelText}"`);
-          return sib;
-        }
-        // Try parent's input
+        if (sib && isInputEl(sib) && isVisible(sib)) return sib;
         const parentInput = label
           .closest('.field, .application-field, [class*="field"], li')
           ?.querySelector("input, textarea");
-        if (parentInput && isVisible(parentInput)) {
-          log(`Found by label parent container: "${labelText}"`);
-          return parentInput;
-        }
+        if (parentInput && isVisible(parentInput)) return parentInput;
       }
     }
-
-    // Strategy 4: placeholder / aria-label / id text matching
     const selector =
       def.type === "textarea"
         ? "textarea"
@@ -318,28 +267,20 @@
         (el.name || "").toLowerCase(),
         (el.id || "").toLowerCase(),
       ];
-      if (def.labels.some((l) => attrs.some((a) => a.includes(l)))) {
-        log(`Found by attribute: "${def.key}" in attrs`);
-        return el;
-      }
+      if (def.labels.some((l) => attrs.some((a) => a.includes(l)))) return el;
     }
-
     return null;
   }
 
-  // Greenhouse uses React. This is the correct way to set a value
-  // so React's state picks it up.
-  // ─── REACT-COMPATIBLE FILL ───────────────────────────────────────────────────
   function reactFill(el, value) {
     if (!el || value === undefined) return false;
     try {
       el.focus();
-
       let proto;
       if (el.tagName === "TEXTAREA")
         proto = window.HTMLTextAreaElement.prototype;
       else if (el.tagName === "SELECT")
-        proto = window.HTMLSelectElement.prototype; // NEW: Added Select support
+        proto = window.HTMLSelectElement.prototype;
       else proto = window.HTMLInputElement.prototype;
 
       const nativeSetter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
@@ -357,7 +298,6 @@
       );
       el.dispatchEvent(new Event("change", { bubbles: true }));
       el.dispatchEvent(new Event("blur", { bubbles: true }));
-
       return true;
     } catch (e) {
       log("reactFill error:", e.message);
@@ -365,7 +305,6 @@
     }
   }
 
-  // ─── FILE INPUT FILL ─────────────────────────────────────────────────────────
   function fillFile(el, file) {
     try {
       const dt = new DataTransfer();
@@ -374,35 +313,29 @@
       el.dispatchEvent(new Event("change", { bubbles: true }));
       return true;
     } catch (e) {
-      log("fillFile error:", e.message);
       return false;
     }
   }
+
   function fillDropdown(el, value) {
     if (!el || !value) return false;
     const options = Array.from(el.options);
-
-    // Match what the AI generated with the text in the dropdown
     const match = options.find(
       (opt) =>
         opt.text.toLowerCase().includes(value.toLowerCase()) ||
         opt.value.toLowerCase() === value.toLowerCase(),
     );
-
     if (match) {
-      // Use reactFill instead of native event dispatch to bypass React's state wrapper
       return reactFill(el, match.value);
     }
     return false;
   }
 
   function fillRadioGroup(nameAttribute, desiredValue) {
-    // Find all radio buttons with this name
     const radios = document.querySelectorAll(
       `input[type="radio"][name="${nameAttribute}"]`,
     );
     for (const radio of radios) {
-      // Check if the adjacent label matches our desired value (e.g., "Yes")
       const label =
         radio.closest("label") ||
         document.querySelector(`label[for="${radio.id}"]`);
@@ -422,7 +355,6 @@
     const fields = document.querySelectorAll(".application-field, .field");
     for (const field of fields) {
       const label = field.querySelector("label");
-
       if (
         label &&
         (label.textContent.toLowerCase().includes(keyword) ||
@@ -432,7 +364,6 @@
         if (input) return input;
       }
     }
-
     return document.querySelector('input[type="file"]');
   }
 
@@ -462,7 +393,6 @@
     });
   }
 
-  // ─── HELPERS ─────────────────────────────────────────────────────────────────
   function cleanLabel(text) {
     return (text || "")
       .toLowerCase()
@@ -475,12 +405,10 @@
   function firstName(n) {
     return (n || "").trim().split(/\s+/)[0] || "";
   }
-
   function lastName(n) {
     const parts = (n || "").trim().split(/\s+/);
     return parts.length > 1 ? parts.slice(1).join(" ") : "";
   }
-
   function extractCity(location) {
     if (!location) return "";
     return location.split(",")[0].trim();
@@ -510,7 +438,6 @@
   function isInputEl(el) {
     return el && ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName);
   }
-
   function sleep(ms) {
     return new Promise((r) => setTimeout(r, ms));
   }
@@ -518,7 +445,6 @@
     console.log("[ResumeAutofill]", ...a);
   }
 
-  // ─── RESULT BANNER ───────────────────────────────────────────────────────────
   function showBanner(r) {
     document.getElementById("__ra_banner")?.remove();
     const skippedReal = r.skipped.filter(
@@ -562,13 +488,10 @@
     setTimeout(() => b?.parentElement && b.remove(), 9000);
   }
 
-  // ─── DYNAMIC AI MAPPING HELPERS ──────────────────────────────────────────────
-
   function scrapeFormQuestions() {
     const questions = [];
     document.querySelectorAll("label").forEach((label) => {
       const text = cleanLabel(label.textContent);
-
       const ignoreList = [
         "first name",
         "last name",
@@ -580,7 +503,6 @@
         "dropbox",
         "google drive",
       ];
-
       if (text && !questions.includes(text) && !ignoreList.includes(text)) {
         questions.push(text);
       }
@@ -594,18 +516,14 @@
       if (cleanLabel(label.textContent) === targetLabel) {
         if (label.htmlFor) {
           const el = document.getElementById(label.htmlFor);
-          if (el && isInputEl(el)) return el; // Removed isVisible check
+          if (el && isInputEl(el)) return el;
         }
-
-        // Try direct child
         const child = label.parentElement?.querySelector(
           "input, textarea, select",
         );
-        if (child) return child; // Removed isVisible check
-
-        // Try next sibling
+        if (child) return child;
         const sib = label.nextElementSibling;
-        if (sib && isInputEl(sib)) return sib; // Removed isVisible check
+        if (sib && isInputEl(sib)) return sib;
       }
     }
     return null;
@@ -620,14 +538,11 @@
         el.getAttribute("data-testid")?.includes("text") ||
         el.textContent.trim().toLowerCase() === "enter manually",
     );
-
     for (const btn of manualButtons) {
       const container = btn.closest(
         ".application-field, .field, .field-wrapper, .file-upload, [role='group']",
       );
-
       const textarea = container?.querySelector("textarea");
-
       if (!textarea || !isVisible(textarea)) {
         btn.click();
         log('Clicked "Enter manually" based on new DOM selectors.');
